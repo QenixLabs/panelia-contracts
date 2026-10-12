@@ -6,9 +6,9 @@ export const userPlanSchema = z.enum(['free', 'pro', 'studio', 'max']);
 export const userSchema = z.object({
   id: entityIdSchema,
   email: z.email(),
-  name: z.string().min(1).max(80),
+  name: z.string().trim().min(1).max(80),
   plan: userPlanSchema,
-  avatarUrl: z.url().optional(),
+  avatarUrl: z.url().nullable().optional(),
   createdAt: isoDateTimeSchema,
 });
 

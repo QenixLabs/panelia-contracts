@@ -17,10 +17,16 @@ describe('primitives', () => {
       '2026-10-12T10:00:00Z',
     );
   });
+  it('isoDateTimeSchema rejects a non-ISO date like "yesterday"', () => {
+    expect(() => isoDateTimeSchema.parse('yesterday')).toThrow();
+  });
   it('urlSchema accepts https URLs', () => {
     expect(urlSchema.parse('https://example.com/x.png')).toBe(
       'https://example.com/x.png',
     );
+  });
+  it("urlSchema rejects 'not-a-url'", () => {
+    expect(() => urlSchema.parse('not-a-url')).toThrow();
   });
 });
 
@@ -41,6 +47,22 @@ describe('userSchema', () => {
     for (const plan of ['free', 'pro', 'studio', 'max'] as const) {
       expect(userSchema.parse({ ...base, plan }).plan).toBe(plan);
     }
+  });
+
+  it('rejects a whitespace-only name', () => {
+    expect(() =>
+      userSchema.parse({ ...base, plan: 'free', name: '   ' }),
+    ).toThrow();
+  });
+
+  it('trims a padded name', () => {
+    const user = userSchema.parse({ ...base, plan: 'free', name: '  Nilesh  ' });
+    expect(user.name).toBe('Nilesh');
+  });
+
+  it('parses a null avatarUrl', () => {
+    const user = userSchema.parse({ ...base, plan: 'free', avatarUrl: null });
+    expect(user.avatarUrl).toBeNull();
   });
 
   it('rejects a bad email', () => {

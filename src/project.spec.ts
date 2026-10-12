@@ -58,6 +58,21 @@ describe('projectSchema', () => {
     expect(() => projectSchema.parse({ ...baseProject, title: '' })).toThrow();
   });
 
+  it('rejects a whitespace-only title', () => {
+    expect(() =>
+      projectSchema.parse({ ...baseProject, title: '   ' }),
+    ).toThrow();
+  });
+
+  it('trims a padded title', () => {
+    const project = projectSchema.parse({
+      ...baseProject,
+      format: 'manga',
+      title: '  My Manga  ',
+    });
+    expect(project.title).toBe('My Manga');
+  });
+
   it('carries the Project / ProjectFormat types', () => {
     const project: Project = projectSchema.parse({
       ...baseProject,
@@ -105,6 +120,15 @@ describe('createProjectInputSchema', () => {
 
   it('rejects an empty title', () => {
     expect(() => createProjectInputSchema.parse({ title: '' })).toThrow();
+  });
+
+  it('rejects a whitespace-only title', () => {
+    expect(() => createProjectInputSchema.parse({ title: '  ' })).toThrow();
+  });
+
+  it('trims a padded title', () => {
+    const input = createProjectInputSchema.parse({ title: '  Hello  ' });
+    expect(input.title).toBe('Hello');
   });
 
   it('carries the CreateProjectInput type', () => {
@@ -157,6 +181,25 @@ describe('registerInputSchema', () => {
       }),
     ).toThrow();
   });
+
+  it('rejects a whitespace-only name', () => {
+    expect(() =>
+      registerInputSchema.parse({
+        email: 'nilesh@example.com',
+        password: 'supersecret1',
+        name: '   ',
+      }),
+    ).toThrow();
+  });
+
+  it('trims a padded name', () => {
+    const input = registerInputSchema.parse({
+      email: 'nilesh@example.com',
+      password: 'supersecret1',
+      name: '  Nilesh  ',
+    });
+    expect(input.name).toBe('Nilesh');
+  });
 });
 
 describe('loginInputSchema', () => {
@@ -185,5 +228,17 @@ describe('authTokensSchema', () => {
       refreshToken: 'r',
     });
     expect(tokens.accessToken).toBe('a');
+  });
+
+  it('rejects empty accessToken', () => {
+    expect(() =>
+      authTokensSchema.parse({ accessToken: '', refreshToken: 'r' }),
+    ).toThrow();
+  });
+
+  it('rejects empty refreshToken', () => {
+    expect(() =>
+      authTokensSchema.parse({ accessToken: 'a', refreshToken: '' }),
+    ).toThrow();
   });
 });

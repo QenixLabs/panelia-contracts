@@ -5,7 +5,7 @@ export const projectFormatSchema = z.enum(['manga', 'manhwa', '4koma']);
 
 export const projectSchema = z.object({
   id: entityIdSchema,
-  title: z.string().min(1).max(120),
+  title: z.string().trim().min(1).max(120),
   format: projectFormatSchema,
   coverUrl: urlSchema.nullable(),
   createdAt: isoDateTimeSchema,
@@ -18,7 +18,7 @@ export const projectListSchema = z.object({
 });
 
 export const createProjectInputSchema = z.object({
-  title: z.string().min(1).max(120),
+  title: z.string().trim().min(1).max(120),
   format: projectFormatSchema.default('manga'),
 });
 

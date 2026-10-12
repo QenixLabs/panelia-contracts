@@ -1,19 +1,5 @@
 import { z } from 'zod';
 
-export interface ApiSuccess<T> {
-  message: string;
-  data: T;
-  success: true;
-}
-
-export interface ApiError {
-  message: string;
-  data: null;
-  success: false;
-}
-
-export type ApiEnvelope<T> = ApiSuccess<T> | ApiError;
-
 export function apiSuccessSchema<T extends z.ZodType>(data: T) {
   return z.object({
     message: z.string(),
@@ -27,3 +13,11 @@ export const apiErrorSchema = z.object({
   data: z.null(),
   success: z.literal(false),
 });
+
+const successBase = apiSuccessSchema(z.unknown());
+export type ApiSuccess<T> = Omit<z.infer<typeof successBase>, 'data'> & {
+  data: T;
+};
+export type ApiError = z.infer<typeof apiErrorSchema>;
+
+export type ApiEnvelope<T> = ApiSuccess<T> | ApiError;
