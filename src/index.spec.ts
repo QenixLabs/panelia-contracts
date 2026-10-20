@@ -4,6 +4,7 @@ import * as contracts from './index.js';
 const EXPECTED_EXPORTS = [
   'apiErrorSchema',
   'apiSuccessSchema',
+  'authResponseSchema',
   'authTokensSchema',
   'createProjectInputSchema',
   'entityIdSchema',
