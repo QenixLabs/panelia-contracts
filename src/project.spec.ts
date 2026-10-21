@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   createProjectInputSchema,
+  komaVariantSchema,
   projectFormatSchema,
   projectListSchema,
   projectSchema,
+  ratingSchema,
   updateProjectInputSchema,
 } from './project.js';
 import type {
@@ -11,8 +13,10 @@ import type {
   Project,
   ProjectFormat,
   ProjectList,
+  Rating,
   UpdateProjectInput,
 } from './project.js';
+import type { StyleProfile } from './style.js';
 import {
   authTokensSchema,
   loginInputSchema,
@@ -20,10 +24,25 @@ import {
 } from './auth.js';
 import type { AuthTokens, LoginInput, RegisterInput } from './auth.js';
 
+const style: StyleProfile = {
+  renderFamily: 'bw_ink',
+  artDirection: 'shonen_action',
+  mood: 'cinematic',
+  fine: {
+    lineWeight: 70, realism: 30, saturation: 0, shadingHardness: 75,
+    detail: 70, eyeExaggeration: 55, texture: 40, lightingStrength: 70,
+  },
+};
+
 const baseProject = {
   id: 'prj_1',
   title: 'My Manga',
   coverUrl: 'https://example.com/cover.png',
+  rating: 'teen',
+  presetId: 'shonen_action_manga',
+  basedOnPresetId: 'shonen_action_manga',
+  style,
+  komaVariant: null,
   createdAt: '2026-10-12T10:00:00Z',
   updatedAt: '2026-10-12T10:00:00Z',
 };
@@ -105,34 +124,54 @@ describe('projectListSchema', () => {
 });
 
 describe('createProjectInputSchema', () => {
-  it('defaults format to manga', () => {
-    const input = createProjectInputSchema.parse({ title: 'Hello' });
+  it('defaults format to manga and rating to teen', () => {
+    const input = createProjectInputSchema.parse({
+      title: 'Hello',
+      presetId: 'shonen_action_manga',
+    });
     expect(input.format).toBe('manga');
+    expect(input.rating).toBe('teen');
+    expect(input.style).toBeUndefined();
   });
 
-  it('accepts an explicit format', () => {
+  it('accepts an explicit format, rating and style override', () => {
     const input = createProjectInputSchema.parse({
       title: 'Hello',
       format: 'manhwa',
+      presetId: 'clean_webtoon',
+      rating: 'mature',
+      style,
     });
     expect(input.format).toBe('manhwa');
+    expect(input.style?.mood).toBe('cinematic');
+  });
+
+  it('requires presetId', () => {
+    expect(() => createProjectInputSchema.parse({ title: 'Hello' })).toThrow();
   });
 
   it('rejects an empty title', () => {
-    expect(() => createProjectInputSchema.parse({ title: '' })).toThrow();
+    expect(() =>
+      createProjectInputSchema.parse({ title: '', presetId: 'clean_webtoon' }),
+    ).toThrow();
   });
 
   it('rejects a whitespace-only title', () => {
-    expect(() => createProjectInputSchema.parse({ title: '  ' })).toThrow();
+    expect(() =>
+      createProjectInputSchema.parse({ title: '  ', presetId: 'clean_webtoon' }),
+    ).toThrow();
   });
 
   it('trims a padded title', () => {
-    const input = createProjectInputSchema.parse({ title: '  Hello  ' });
+    const input = createProjectInputSchema.parse({
+      title: '  Hello  ',
+      presetId: 'clean_webtoon',
+    });
     expect(input.title).toBe('Hello');
   });
 
   it('carries the CreateProjectInput type', () => {
-    const input: CreateProjectInput = { title: 'Hello' };
+    const input: CreateProjectInput = { title: 'Hello', presetId: 'clean_webtoon' };
     expect(input.title).toBe('Hello');
   });
 });
@@ -145,10 +184,47 @@ describe('updateProjectInputSchema', () => {
     expect(update.title).toBe('New title');
   });
 
+  it('accepts format, presetId null, style and rating', () => {
+    const update = updateProjectInputSchema.parse({
+      format: 'manhwa',
+      presetId: null,
+      style,
+      rating: 'all_ages',
+    });
+    expect(update.presetId).toBeNull();
+    expect(update.rating).toBe('all_ages');
+  });
+
   it('rejects unknown keys (strict)', () => {
     expect(() =>
-      updateProjectInputSchema.parse({ title: 'x', format: 'manga' }),
+      updateProjectInputSchema.parse({ title: 'x', komaVariant: 'classic_vertical' }),
     ).toThrow();
+  });
+});
+
+describe('ratingSchema', () => {
+  it('exposes four ratings in ascending order', () => {
+    const ratings: Rating[] = ratingSchema.options;
+    expect(ratings).toEqual(['all_ages', 'teen', 'mature', 'adult_18plus']);
+  });
+});
+
+describe('komaVariantSchema', () => {
+  it('has the single MVP variant', () => {
+    expect(komaVariantSchema.options).toEqual(['classic_vertical']);
+  });
+});
+
+describe('projectSchema Phase 2 fields', () => {
+  it('allows presetId null with basedOnPresetId kept', () => {
+    const project = projectSchema.parse({ ...baseProject, format: 'manga', presetId: null });
+    expect(project.presetId).toBeNull();
+    expect(project.basedOnPresetId).toBe('shonen_action_manga');
+  });
+
+  it('requires style', () => {
+    const { style: _s, ...rest } = baseProject;
+    expect(() => projectSchema.parse({ ...rest, format: 'manga' })).toThrow();
   });
 });
 
