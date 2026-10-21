@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { apiErrorCodeSchema } from './errors.js';
 
 export function apiSuccessSchema<T extends z.ZodType>(data: T) {
   return z.object({
@@ -12,6 +13,7 @@ export const apiErrorSchema = z.object({
   message: z.string(),
   data: z.null(),
   success: z.literal(false),
+  code: apiErrorCodeSchema.optional(),
 });
 
 const successBase = apiSuccessSchema(z.unknown());

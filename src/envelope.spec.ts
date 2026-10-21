@@ -37,6 +37,30 @@ describe('apiErrorSchema', () => {
   });
 });
 
+describe('apiErrorSchema code', () => {
+  it('accepts an error without code (Phase 1 shape)', () => {
+    expect(
+      apiErrorSchema.parse({ message: 'Not found', data: null, success: false }).code,
+    ).toBeUndefined();
+  });
+
+  it('accepts a known code', () => {
+    const err = apiErrorSchema.parse({
+      message: 'Adult ratings need the Adult add-on',
+      data: null,
+      success: false,
+      code: 'RATING_LOCKED',
+    });
+    expect(err.code).toBe('RATING_LOCKED');
+  });
+
+  it('rejects an unknown code', () => {
+    expect(() =>
+      apiErrorSchema.parse({ message: 'x', data: null, success: false, code: 'NOPE' }),
+    ).toThrow();
+  });
+});
+
 describe('ApiSuccess type', () => {
   it('carries the generic data type', () => {
     const envelope: ApiSuccess<{ id: string }> = {
