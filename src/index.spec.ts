@@ -2,24 +2,68 @@ import { describe, expect, it } from 'vitest';
 import * as contracts from './index.js';
 
 const EXPECTED_EXPORTS = [
+  // primitives / envelope / errors
+  'apiErrorCodeSchema',
   'apiErrorSchema',
   'apiSuccessSchema',
-  'authResponseSchema',
-  'authTokensSchema',
-  'createProjectInputSchema',
   'entityIdSchema',
   'isoDateTimeSchema',
+  'urlSchema',
+  // auth / user
+  'authResponseSchema',
+  'authTokensSchema',
+  'loginInputSchema',
+  'registerInputSchema',
+  'userPlanSchema',
+  'userSchema',
+  // jobs
   'jobStateSchema',
   'jobStatusEventSchema',
-  'loginInputSchema',
+  // project
+  'createProjectInputSchema',
+  'komaVariantSchema',
   'projectFormatSchema',
   'projectListSchema',
   'projectSchema',
-  'registerInputSchema',
+  'ratingSchema',
   'updateProjectInputSchema',
-  'urlSchema',
-  'userPlanSchema',
-  'userSchema',
+  // style
+  'artDirectionSchema',
+  'fineControlsSchema',
+  'moodSchema',
+  'renderFamilySchema',
+  'styleProfileSchema',
+  // preset
+  'DEFAULT_PRESET_BY_FORMAT',
+  'PRESETS',
+  'getPreset',
+  'presetListSchema',
+  'presetSchema',
+  'presetsForFormat',
+  // asset
+  'MAX_ASSET_BYTES',
+  'MAX_REFS_PER_CHARACTER',
+  'assetContentTypeSchema',
+  'assetKindSchema',
+  'assetSchema',
+  'assetStatusSchema',
+  'createUploadInputSchema',
+  'createUploadResultSchema',
+  'reviewStatusSchema',
+  'rightsBasisSchema',
+  // character
+  'TRAIT_KEYS',
+  'characterListSchema',
+  'characterRoleSchema',
+  'characterSchema',
+  'characterSummarySchema',
+  'characterTraitsPatchSchema',
+  'characterTraitsSchema',
+  'createCharacterInputSchema',
+  'outfitInputSchema',
+  'outfitSchema',
+  'traitSchema',
+  'updateCharacterInputSchema',
 ].sort();
 
 describe('barrel exports', () => {
