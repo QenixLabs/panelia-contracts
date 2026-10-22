@@ -18,9 +18,6 @@ const EXPECTED_EXPORTS = [
   'registerInputSchema',
   'userPlanSchema',
   'userSchema',
-  // jobs
-  'jobStateSchema',
-  'jobStatusEventSchema',
   // project
   'createProjectInputSchema',
   'komaVariantSchema',
@@ -112,6 +109,9 @@ const EXPECTED_EXPORTS = [
   'creditEntryTypeSchema',
   'creditSummarySchema',
   'planCost',
+  // job events
+  'jobEventSchema',
+  'scriptParseEventSchema',
 ].sort();
 
 describe('barrel exports', () => {
