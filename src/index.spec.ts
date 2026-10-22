@@ -4,9 +4,11 @@ import * as contracts from './index.js';
 const EXPECTED_EXPORTS = [
   // primitives / envelope / errors
   'apiErrorCodeSchema',
+  'apiErrorDetailsSchemas',
   'apiErrorSchema',
   'apiSuccessSchema',
   'entityIdSchema',
+  'errorDetails',
   'isoDateTimeSchema',
   'objectIdSchema',
   'urlSchema',
