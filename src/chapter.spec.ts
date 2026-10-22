@@ -394,3 +394,34 @@ describe('panelPlanSchemaFor: speakers', () => {
     expect(issuePaths('manga', plan(scene({ panels: [panel({ dialogue })] })))).toEqual([]);
   });
 });
+
+describe('panelPlanSchemaFor: 4-koma', () => {
+  it('accepts strips of exactly 4 panels with beat labels', () => {
+    const custom = strip({ beatLabels: ['Ask', 'Wait', 'Twist', 'Laugh'] });
+    expect(issuePaths('4koma', plan(strip(), custom))).toEqual([]);
+  });
+
+  it('flags a strip with 3 or 5 panels', () => {
+    const p = plan(strip({ panels: panels(3) }), strip({ panels: panels(5) }));
+    expect(issuePaths('4koma', p)).toEqual([
+      ['scenes', 0, 'panels'],
+      ['scenes', 1, 'panels'],
+    ]);
+  });
+
+  it('flags a strip without beat labels', () => {
+    const p = plan(strip({ beatLabels: null }));
+    expect(issuePaths('4koma', p)).toEqual([['scenes', 0, 'beatLabels']]);
+  });
+
+  it('caps a 4-koma plan at 15 strips (60 panels)', () => {
+    const strips = (n: number) => Array.from({ length: n }, () => strip());
+    expect(issuePaths('4koma', plan(...strips(15)))).toEqual([]);
+    expect(issuePaths('4koma', plan(...strips(16)))).toEqual([['scenes']]);
+  });
+
+  it('requires beatLabels: null in manga and manhwa', () => {
+    expect(issuePaths('manga', plan(strip()))).toEqual([['scenes', 0, 'beatLabels']]);
+    expect(issuePaths('manhwa', plan(scene(), strip()))).toEqual([['scenes', 1, 'beatLabels']]);
+  });
+});

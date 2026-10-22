@@ -184,7 +184,30 @@ const panelRefs: PlanRule = (plan) => {
   return issues;
 };
 
-const PLAN_RULES: PlanRule[] = [totalPanels, uniqueIds, sceneCastEntries, panelRefs];
+// 4-koma: every scene is a strip of exactly 4 panels with 4 beat labels. Other formats: no labels.
+const stripShape: PlanRule = (plan, format) => {
+  const issues: PlanIssue[] = [];
+  plan.scenes.forEach((scene, si) => {
+    if (format !== '4koma') {
+      if (scene.beatLabels !== null) {
+        issues.push({
+          path: ['scenes', si, 'beatLabels'],
+          message: 'Only 4-koma strips have beat labels',
+        });
+      }
+      return;
+    }
+    if (scene.panels.length !== 4) {
+      issues.push({ path: ['scenes', si, 'panels'], message: 'A 4-koma strip has exactly 4 panels' });
+    }
+    if (scene.beatLabels === null) {
+      issues.push({ path: ['scenes', si, 'beatLabels'], message: 'A 4-koma strip needs 4 beat labels' });
+    }
+  });
+  return issues;
+};
+
+const PLAN_RULES: PlanRule[] = [totalPanels, uniqueIds, sceneCastEntries, panelRefs, stripShape];
 
 /**
  * panelPlanInputSchema plus the cross-field rules for one project format. The server applies it
