@@ -5,6 +5,7 @@ export * from './user.js';
 export * from './style.js';
 export * from './project.js';
 export * from './preset.js';
+export * from './series-rules.js';
 export * from './asset.js';
 export * from './character.js';
 export * from './auth.js';

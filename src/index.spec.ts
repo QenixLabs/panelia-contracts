@@ -42,6 +42,13 @@ const EXPECTED_EXPORTS = [
   'presetListSchema',
   'presetSchema',
   'presetsForFormat',
+  // series rules
+  'SeriesRuleError',
+  'applyFormatChange',
+  'komaVariantFor',
+  'resolvePreset',
+  'resolveSeriesUpdate',
+  'sameStyle',
   // asset
   'MAX_ASSET_BYTES',
   'MAX_REFS_PER_CHARACTER',
