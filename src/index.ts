@@ -10,3 +10,4 @@ export * from './character.js';
 export * from './auth.js';
 export * from './job-status.js';
 export * from './script.js';
+export * from './chapter.js';

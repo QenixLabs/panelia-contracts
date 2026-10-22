@@ -70,6 +70,21 @@ const EXPECTED_EXPORTS = [
   // script
   'SCRIPT_LIMITS',
   'countWords',
+  // chapter
+  'DEFAULT_BEAT_LABELS',
+  'PLAN_LIMITS',
+  'castRefSchema',
+  'countPanels',
+  'dialogueKindSchema',
+  'dialogueLineSchema',
+  'panelPlanInputSchema',
+  'panelPlanSchema',
+  'panelSchema',
+  'planTierSchema',
+  'refKey',
+  'sceneCastSchema',
+  'sceneSchema',
+  'shotTypeSchema',
 ].sort();
 
 describe('barrel exports', () => {
