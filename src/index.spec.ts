@@ -67,6 +67,9 @@ const EXPECTED_EXPORTS = [
   'outfitSchema',
   'traitSchema',
   'updateCharacterInputSchema',
+  // script
+  'SCRIPT_LIMITS',
+  'countWords',
 ].sort();
 
 describe('barrel exports', () => {
