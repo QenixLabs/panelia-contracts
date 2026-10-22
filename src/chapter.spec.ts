@@ -8,6 +8,7 @@ import {
   dialogueLineSchema,
   panelPlanInputSchema,
   panelPlanSchema,
+  panelPlanSchemaFor,
   panelSchema,
   planTierSchema,
   refKey,
@@ -16,6 +17,7 @@ import {
   shotTypeSchema,
 } from './chapter.js';
 import type { CastRef, DialogueLine, Panel, PanelPlanInput, Scene, SceneCast } from './chapter.js';
+import type { ProjectFormat } from './project.js';
 
 // ---------- fixtures ----------
 
@@ -217,5 +219,83 @@ describe('countPanels', () => {
 
   it('is 0 for a plan with no scenes', () => {
     expect(countPanels({ scenes: [] })).toBe(0);
+  });
+});
+
+// ---------- panelPlanSchemaFor ----------
+
+// The path of every issue; [] when the plan is valid.
+function issuePaths(format: ProjectFormat, input: unknown): PropertyKey[][] {
+  const result = panelPlanSchemaFor(format).safeParse(input);
+  return result.success ? [] : result.error.issues.map((issue) => issue.path);
+}
+
+// n distinct unnamed extras.
+const extras = (n: number): CastRef[] =>
+  Array.from({ length: n }, (_, i) => ({ name: `Bystander ${i + 1}`, extra: true }));
+
+describe('panelPlanSchemaFor: caps', () => {
+  it('accepts a valid plan in every format', () => {
+    expect(issuePaths('manga', plan(scene(), scene()))).toEqual([]);
+    expect(issuePaths('manhwa', plan(scene()))).toEqual([]);
+    expect(issuePaths('4koma', plan(strip(), strip()))).toEqual([]);
+  });
+
+  it('caps the plan at 60 panels in total', () => {
+    const sixty = plan(scene({ panels: panels(30) }), scene({ panels: panels(30) }));
+    expect(issuePaths('manga', sixty)).toEqual([]);
+    const sixtyOne = plan(scene({ panels: panels(30) }), scene({ panels: panels(31) }));
+    expect(panelPlanSchemaFor('manga').safeParse(sixtyOne).error?.issues).toEqual([
+      expect.objectContaining({
+        code: 'custom',
+        path: ['scenes'],
+        message: 'Plans hold up to 60 panels',
+      }),
+    ]);
+  });
+
+  it('caps the plan at 30 scenes', () => {
+    const scenes = (n: number) => Array.from({ length: n }, () => scene());
+    expect(issuePaths('manga', plan(...scenes(30)))).toEqual([]);
+    expect(issuePaths('manga', plan(...scenes(31)))).toEqual([['scenes']]);
+  });
+
+  it('caps a scene at 40 panels', () => {
+    expect(issuePaths('manga', plan(scene({ panels: panels(40) })))).toEqual([]);
+    expect(issuePaths('manga', plan(scene({ panels: panels(41) })))).toEqual([['scenes', 0, 'panels']]);
+  });
+
+  it('caps a panel at 8 dialogue lines', () => {
+    const withLines = (n: number) =>
+      plan(scene({ panels: [panel({ dialogue: Array.from({ length: n }, () => line()) })] }));
+    expect(issuePaths('manga', withLines(8))).toEqual([]);
+    expect(issuePaths('manga', withLines(9))).toEqual([['scenes', 0, 'panels', 0, 'dialogue']]);
+  });
+
+  it('caps a panel cast at 8', () => {
+    const withPanelCast = (n: number) => {
+      const refs = extras(n);
+      return plan(scene({ cast: refs.map(castOf), panels: [panel({ cast: refs, dialogue: [] })] }));
+    };
+    expect(issuePaths('manga', withPanelCast(8))).toEqual([]);
+    expect(issuePaths('manga', withPanelCast(9))).toEqual([['scenes', 0, 'panels', 0, 'cast']]);
+  });
+
+  it('caps a scene cast at 12', () => {
+    const withSceneCast = (n: number) =>
+      plan(scene({ cast: extras(n).map(castOf), panels: [panel({ cast: [], dialogue: [] })] }));
+    expect(issuePaths('manga', withSceneCast(12))).toEqual([]);
+    expect(issuePaths('manga', withSceneCast(13))).toEqual([['scenes', 0, 'cast']]);
+  });
+
+  it('runs the cross-field rules only on a well-typed plan', () => {
+    const malformed = { tier: 'draft', scenes: [{ ...scene(), panels: 'not an array' }] };
+    expect(() => panelPlanSchemaFor('manga').safeParse(malformed)).not.toThrow();
+    expect(issuePaths('manga', malformed)).toEqual([['scenes', 0, 'panels']]);
+  });
+
+  it('leaves panelPlanInputSchema itself without cross-field rules', () => {
+    const sixtyOne = plan(scene({ panels: panels(30) }), scene({ panels: panels(31) }));
+    expect(panelPlanInputSchema.safeParse(sixtyOne).success).toBe(true);
   });
 });

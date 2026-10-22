@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { entityIdSchema, objectIdSchema, uuidSchema } from './primitives.js';
+import type { ProjectFormat } from './project.js';
 
 export const PLAN_LIMITS = {
   scenes: 30,
@@ -99,3 +100,33 @@ export type SceneCast = z.infer<typeof sceneCastSchema>;
 export type Scene = z.infer<typeof sceneSchema>;
 export type PanelPlanInput = z.infer<typeof panelPlanInputSchema>;
 export type PanelPlan = z.infer<typeof panelPlanSchema>;
+
+// ---------- cross-field rules (panelPlanSchemaFor) ----------
+
+type PlanIssue = { path: (string | number)[]; message: string };
+type PlanRule = (plan: PanelPlanInput, format: ProjectFormat) => PlanIssue[];
+
+const totalPanels: PlanRule = (plan) =>
+  countPanels(plan) > PLAN_LIMITS.panels
+    ? [{ path: ['scenes'], message: `Plans hold up to ${PLAN_LIMITS.panels} panels` }]
+    : [];
+
+const PLAN_RULES: PlanRule[] = [totalPanels];
+
+/**
+ * panelPlanInputSchema plus the cross-field rules for one project format. The server applies it
+ * on every plan write; the web reducer's fuzz test parses with it after every op. zod skips these
+ * rules while the plan has a type-level error (wrong type, unknown enum value, malformed cast
+ * ref); length caps and id formats don't stop them, so every rule tolerates oversized arrays.
+ * `.check()` (zod 4's successor to `.superRefine()`) refines a clone: panelPlanInputSchema stays
+ * unrefined, so `.extend()` and `.pick()` keep working on it.
+ */
+export function panelPlanSchemaFor(format: ProjectFormat) {
+  return panelPlanInputSchema.check((ctx) => {
+    for (const rule of PLAN_RULES) {
+      for (const { path, message } of rule(ctx.value, format)) {
+        ctx.issues.push({ code: 'custom', input: ctx.value, path, message });
+      }
+    }
+  });
+}

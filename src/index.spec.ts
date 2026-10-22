@@ -79,6 +79,7 @@ const EXPECTED_EXPORTS = [
   'dialogueLineSchema',
   'panelPlanInputSchema',
   'panelPlanSchema',
+  'panelPlanSchemaFor',
   'panelSchema',
   'planTierSchema',
   'refKey',
