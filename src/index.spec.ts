@@ -105,6 +105,13 @@ const EXPECTED_EXPORTS = [
   'startParseResultSchema',
   'unresolvedRefs',
   'updateChapterInputSchema',
+  // credits
+  'CREDIT_PRICES',
+  'TRIAL_GRANT',
+  'creditEntrySchema',
+  'creditEntryTypeSchema',
+  'creditSummarySchema',
+  'planCost',
 ].sort();
 
 describe('barrel exports', () => {
