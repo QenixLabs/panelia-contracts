@@ -1,8 +1,10 @@
 import { z } from 'zod';
+import { characterTraitsSchema, outfitSchema } from './character.js';
 import { entityIdSchema, isoDateTimeSchema, objectIdSchema, uuidSchema } from './primitives.js';
 import { titleSchema } from './project.js';
 import type { ProjectFormat } from './project.js';
 import { SCRIPT_LIMITS } from './script.js';
+import { styleProfileSchema } from './style.js';
 
 export const PLAN_LIMITS = {
   scenes: 30,
@@ -333,3 +335,70 @@ export type Approval = z.infer<typeof approvalSchema>;
 export type Chapter = z.infer<typeof chapterSchema>;
 export type ChapterSummary = z.infer<typeof chapterSummarySchema>;
 export type ChapterList = z.infer<typeof chapterListSchema>;
+
+// ---------- requests and responses ----------
+
+// The server defaults the title to "Chapter {n}".
+export const createChapterInputSchema = z.object({ title: titleSchema.optional() }).strict();
+
+export const updateChapterInputSchema = z
+  .object({ title: titleSchema, script: z.string().max(SCRIPT_LIMITS.maxChars) })
+  .partial()
+  .strict();
+
+export const savePlanInputSchema = z
+  .object({
+    baseRevision: z.number().int().nonnegative(), // 0 = the chapter has no plan yet
+    saveId: uuidSchema,
+    plan: panelPlanInputSchema, // the server also applies panelPlanSchemaFor(format)
+  })
+  .strict();
+
+export const savePlanResultSchema = z.object({ revision: z.number().int().positive() });
+
+export const startParseInputSchema = z.object({ replace: z.boolean().default(false) }).strict();
+
+export const startParseResultSchema = z.object({ jobId: uuidSchema });
+
+export const approvePlanInputSchema = z
+  .object({
+    idempotencyKey: uuidSchema,
+    tier: planTierSchema,
+    revision: z.number().int().positive(),
+  })
+  .strict();
+
+// ---------- continuity context v1 (CO-01/02) ----------
+
+export const panelContextSchema = z.object({
+  panelId: uuidSchema,
+  sceneId: uuidSchema,
+  location: z.string(),
+  characters: z.array(
+    z.object({
+      characterId: objectIdSchema,
+      name: z.string(),
+      // Locked, non-empty traits only.
+      lockedTraits: z.partialRecord(characterTraitsSchema.keyof(), z.string()),
+      outfit: outfitSchema.pick({ id: true, name: true, description: true }).nullable(),
+      notes: z.string(),
+    }),
+  ),
+});
+
+export const chapterContextSchema = z.object({
+  chapterId: objectIdSchema,
+  revision: z.number().int().nonnegative(), // 0 when the chapter has no plan
+  style: styleProfileSchema,
+  panels: z.array(panelContextSchema),
+});
+
+export type CreateChapterInput = z.infer<typeof createChapterInputSchema>;
+export type UpdateChapterInput = z.infer<typeof updateChapterInputSchema>;
+export type SavePlanInput = z.infer<typeof savePlanInputSchema>;
+export type SavePlanResult = z.infer<typeof savePlanResultSchema>;
+export type StartParseInput = z.input<typeof startParseInputSchema>; // `replace` is optional for callers
+export type StartParseResult = z.infer<typeof startParseResultSchema>;
+export type ApprovePlanInput = z.infer<typeof approvePlanInputSchema>;
+export type PanelContext = z.infer<typeof panelContextSchema>;
+export type ChapterContext = z.infer<typeof chapterContextSchema>;

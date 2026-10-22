@@ -2,15 +2,19 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_BEAT_LABELS,
   PLAN_LIMITS,
+  approvePlanInputSchema,
   castRefSchema,
+  chapterContextSchema,
   chapterListSchema,
   chapterSchema,
   chapterStatusSchema,
   chapterSummarySchema,
   countEmptyPanels,
   countPanels,
+  createChapterInputSchema,
   dialogueKindSchema,
   dialogueLineSchema,
+  panelContextSchema,
   panelPlanInputSchema,
   panelPlanSchema,
   panelPlanSchemaFor,
@@ -20,23 +24,33 @@ import {
   parseStatusSchema,
   planTierSchema,
   refKey,
+  savePlanInputSchema,
+  savePlanResultSchema,
   sceneCastSchema,
   sceneSchema,
   shotTypeSchema,
+  startParseInputSchema,
+  startParseResultSchema,
   unresolvedRefs,
+  updateChapterInputSchema,
 } from './chapter.js';
 import type {
+  ApprovePlanInput,
   CastRef,
   Chapter,
+  ChapterContext,
   ChapterList,
   ChapterSummary,
   DialogueLine,
   Panel,
+  PanelContext,
   PanelPlanInput,
   ParseStatus,
+  SavePlanInput,
   Scene,
   SceneCast,
 } from './chapter.js';
+import { getPreset } from './preset.js';
 import type { ProjectFormat } from './project.js';
 
 // ---------- fixtures ----------
@@ -606,5 +620,113 @@ describe('chapterSummarySchema / chapterListSchema', () => {
     const list: ChapterList = { items: [summary], total: 1 };
     expect(chapterListSchema.parse(list)).toEqual(list);
     expect(chapterSummarySchema.safeParse({ ...summary, panelCount: -1 }).success).toBe(false);
+  });
+});
+
+// ---------- requests, responses and continuity context ----------
+
+const SAVE_ID = '9b1c2d3e-4f50-4a6b-8c7d-0e1f2a3b4c5d';
+
+describe('createChapterInputSchema / updateChapterInputSchema', () => {
+  it('creates with an optional, trimmed title', () => {
+    expect(createChapterInputSchema.parse({})).toEqual({});
+    expect(createChapterInputSchema.parse({ title: '  The Rooftop ' })).toEqual({
+      title: 'The Rooftop',
+    });
+    expect(createChapterInputSchema.safeParse({ number: 4 }).success).toBe(false);
+  });
+
+  it('updates the title or the script, capped at 30,000 characters', () => {
+    expect(updateChapterInputSchema.parse({ script: 'Aoi runs.' })).toEqual({ script: 'Aoi runs.' });
+    expect(updateChapterInputSchema.safeParse({ script: 'x'.repeat(30_001) }).success).toBe(false);
+    expect(updateChapterInputSchema.safeParse({ plan: null }).success).toBe(false);
+  });
+});
+
+describe('savePlanInputSchema / savePlanResultSchema', () => {
+  it('accepts a first save from base revision 0', () => {
+    const input: SavePlanInput = { baseRevision: 0, saveId: SAVE_ID, plan: plan() };
+    expect(savePlanInputSchema.parse(input)).toEqual(input);
+  });
+
+  it('rejects a negative base, a non-uuid save id and unknown keys', () => {
+    const input = { baseRevision: 3, saveId: SAVE_ID, plan: plan() };
+    expect(savePlanInputSchema.safeParse({ ...input, baseRevision: -1 }).success).toBe(false);
+    expect(savePlanInputSchema.safeParse({ ...input, saveId: 'save-1' }).success).toBe(false);
+    expect(savePlanInputSchema.safeParse({ ...input, revision: 4 }).success).toBe(false);
+  });
+
+  it('leaves the cross-field rules to panelPlanSchemaFor on the server', () => {
+    const sixtyOne = plan(scene({ panels: panels(30) }), scene({ panels: panels(31) }));
+    const input = { baseRevision: 0, saveId: SAVE_ID, plan: sixtyOne };
+    expect(savePlanInputSchema.safeParse(input).success).toBe(true);
+  });
+
+  it('returns a positive revision', () => {
+    expect(savePlanResultSchema.parse({ revision: 4 })).toEqual({ revision: 4 });
+    expect(savePlanResultSchema.safeParse({ revision: 0 }).success).toBe(false);
+  });
+});
+
+describe('startParseInputSchema / startParseResultSchema', () => {
+  it('defaults replace to false and rejects unknown keys', () => {
+    expect(startParseInputSchema.parse({})).toEqual({ replace: false });
+    expect(startParseInputSchema.parse({ replace: true })).toEqual({ replace: true });
+    expect(startParseInputSchema.safeParse({ force: true }).success).toBe(false);
+  });
+
+  it('returns the job id as a uuid', () => {
+    expect(startParseResultSchema.parse({ jobId: SAVE_ID })).toEqual({ jobId: SAVE_ID });
+    expect(startParseResultSchema.safeParse({ jobId: '42' }).success).toBe(false);
+  });
+});
+
+describe('approvePlanInputSchema', () => {
+  const input: ApprovePlanInput = { idempotencyKey: SAVE_ID, tier: 'hq', revision: 2 };
+
+  it('accepts a client idempotency key, the tier and the revision', () => {
+    expect(approvePlanInputSchema.parse(input)).toEqual(input);
+  });
+
+  it('rejects revision 0, a non-uuid key and unknown keys', () => {
+    const ok = (over: object) => approvePlanInputSchema.safeParse({ ...input, ...over }).success;
+    expect(ok({ revision: 0 })).toBe(false);
+    expect(ok({ idempotencyKey: 'approve-1' })).toBe(false);
+    expect(ok({ amount: 24 })).toBe(false);
+  });
+});
+
+describe('panelContextSchema / chapterContextSchema', () => {
+  const style = getPreset('shonen_action_manga')!.style;
+  const panelContext: PanelContext = {
+    panelId: uid(),
+    sceneId: uid(),
+    location: 'School rooftop, dusk',
+    characters: [
+      {
+        characterId: AOI,
+        name: 'Aoi',
+        lockedTraits: { hair: 'black bob, red clip', eyes: 'amber' },
+        outfit: { id: 'out_1', name: 'School uniform', description: 'Navy blazer, red tie' },
+        notes: 'Bandaged left arm',
+      },
+    ],
+  };
+
+  it('parses a panel context with locked traits, the carried outfit and notes', () => {
+    expect(panelContextSchema.parse(panelContext)).toEqual(panelContext);
+  });
+
+  it('rejects a locked trait that is not a character trait', () => {
+    const withWings = { ...panelContext.characters[0], lockedTraits: { wings: 'feathered' } };
+    const result = panelContextSchema.safeParse({ ...panelContext, characters: [withWings] });
+    expect(result.success).toBe(false);
+  });
+
+  it('parses a chapter context, including the empty one for a chapter with no plan', () => {
+    const context: ChapterContext = { chapterId: CHAPTER, revision: 2, style, panels: [panelContext] };
+    expect(chapterContextSchema.parse(context)).toEqual(context);
+    const empty: ChapterContext = { chapterId: CHAPTER, revision: 0, style, panels: [] };
+    expect(chapterContextSchema.parse(empty)).toEqual(empty);
   });
 });
