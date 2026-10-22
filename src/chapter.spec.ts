@@ -299,3 +299,50 @@ describe('panelPlanSchemaFor: caps', () => {
     expect(panelPlanInputSchema.safeParse(sixtyOne).success).toBe(true);
   });
 });
+
+describe('panelPlanSchemaFor: unique ids', () => {
+  it('flags a panel id reused in another scene', () => {
+    const first = scene();
+    const second = scene({ panels: [panel({ id: first.panels[0]!.id })] });
+    expect(issuePaths('manga', plan(first, second))).toEqual([['scenes', 1, 'panels', 0, 'id']]);
+  });
+
+  it('flags a dialogue line id reused in another panel', () => {
+    const first = panel();
+    const second = panel({ dialogue: [line({ id: first.dialogue[0]!.id })] });
+    expect(issuePaths('manga', plan(scene({ panels: [first, second] })))).toEqual([
+      ['scenes', 0, 'panels', 1, 'dialogue', 0, 'id'],
+    ]);
+  });
+
+  it('flags a panel that reuses its scene id', () => {
+    const id = uid();
+    expect(issuePaths('manga', plan(scene({ id, panels: [panel({ id })] })))).toEqual([
+      ['scenes', 0, 'panels', 0, 'id'],
+    ]);
+  });
+});
+
+describe('panelPlanSchemaFor: scene cast', () => {
+  it('flags a character listed twice in one scene', () => {
+    expect(issuePaths('manga', plan(scene({ cast: [castOf(aoi), castOf(aoi)] })))).toEqual([
+      ['scenes', 0, 'cast', 1, 'ref'],
+    ]);
+  });
+
+  it('flags names that match after trimming and case-folding, extra or not', () => {
+    const cast = [castOf(aoi), castOf(kaito), castOf({ name: ' KAITO ', extra: true })];
+    expect(issuePaths('manga', plan(scene({ cast })))).toEqual([['scenes', 0, 'cast', 2, 'ref']]);
+  });
+
+  it('allows the same character in different scenes', () => {
+    expect(issuePaths('manga', plan(scene(), scene()))).toEqual([]);
+  });
+
+  it('allows an outfit on a character ref but not on a name ref', () => {
+    const withOutfit = scene({ cast: [{ ref: aoi, outfitId: 'out_1', notes: 'Bandaged left arm' }] });
+    expect(issuePaths('manga', plan(withOutfit))).toEqual([]);
+    const nameWithOutfit = scene({ cast: [castOf(aoi), { ref: kaito, outfitId: 'out_2', notes: '' }] });
+    expect(issuePaths('manga', plan(nameWithOutfit))).toEqual([['scenes', 0, 'cast', 1, 'outfitId']]);
+  });
+});

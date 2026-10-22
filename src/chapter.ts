@@ -111,7 +111,52 @@ const totalPanels: PlanRule = (plan) =>
     ? [{ path: ['scenes'], message: `Plans hold up to ${PLAN_LIMITS.panels} panels` }]
     : [];
 
-const PLAN_RULES: PlanRule[] = [totalPanels];
+// Scene, panel and line ids share one namespace: each id appears once in the whole plan.
+const uniqueIds: PlanRule = (plan) => {
+  const seen = new Set<string>();
+  const issues: PlanIssue[] = [];
+  const visit = (id: string, path: (string | number)[]) => {
+    if (seen.has(id)) {
+      issues.push({ path: [...path, 'id'], message: 'Scene, panel and line ids must be unique' });
+    }
+    seen.add(id);
+  };
+  plan.scenes.forEach((scene, si) => {
+    visit(scene.id, ['scenes', si]);
+    scene.panels.forEach((panel, pi) => {
+      visit(panel.id, ['scenes', si, 'panels', pi]);
+      panel.dialogue.forEach((line, li) => visit(line.id, ['scenes', si, 'panels', pi, 'dialogue', li]));
+    });
+  });
+  return issues;
+};
+
+// Each cast member appears once per scene (by refKey); only roster characters carry an outfit.
+const sceneCastEntries: PlanRule = (plan) => {
+  const issues: PlanIssue[] = [];
+  plan.scenes.forEach((scene, si) => {
+    const keys = new Set<string>();
+    scene.cast.forEach((entry, ci) => {
+      const key = refKey(entry.ref);
+      if (keys.has(key)) {
+        issues.push({
+          path: ['scenes', si, 'cast', ci, 'ref'],
+          message: 'A scene lists each cast member once',
+        });
+      }
+      keys.add(key);
+      if (!('characterId' in entry.ref) && entry.outfitId !== null) {
+        issues.push({
+          path: ['scenes', si, 'cast', ci, 'outfitId'],
+          message: 'Only roster characters have outfits',
+        });
+      }
+    });
+  });
+  return issues;
+};
+
+const PLAN_RULES: PlanRule[] = [totalPanels, uniqueIds, sceneCastEntries];
 
 /**
  * panelPlanInputSchema plus the cross-field rules for one project format. The server applies it
