@@ -226,3 +226,44 @@ export function panelPlanSchemaFor(format: ProjectFormat) {
     }
   });
 }
+
+// ---------- approve blockers (web action bar and server approve share these) ----------
+
+/**
+ * Distinct refKeys that block approve: names with extra: false, and character ids missing from
+ * the roster. `names` lists the unresolved names in plan order (first spelling wins). A missing
+ * character has no name, so `count` can exceed `names.length`.
+ */
+export function unresolvedRefs(
+  plan: PanelPlanInput,
+  rosterIds: ReadonlySet<string>,
+): { count: number; names: string[] } {
+  const keys = new Set<string>();
+  const names: string[] = [];
+  const visit = (ref: CastRef) => {
+    if ('characterId' in ref ? rosterIds.has(ref.characterId) : ref.extra) return;
+    const key = refKey(ref);
+    if (keys.has(key)) return;
+    keys.add(key);
+    if ('name' in ref) names.push(ref.name.trim());
+  };
+  for (const scene of plan.scenes) {
+    for (const entry of scene.cast) visit(entry.ref);
+    for (const panel of scene.panels) {
+      for (const ref of panel.cast) visit(ref);
+      for (const line of panel.dialogue) if (line.speaker) visit(line.speaker);
+    }
+  }
+  return { count: keys.size, names };
+}
+
+/** Panels with nothing to draw: subject and action are both blank after trimming. */
+export function countEmptyPanels(plan: PanelPlanInput): number {
+  let n = 0;
+  for (const scene of plan.scenes) {
+    for (const panel of scene.panels) {
+      if (panel.subject.trim() === '' && panel.action.trim() === '') n++;
+    }
+  }
+  return n;
+}

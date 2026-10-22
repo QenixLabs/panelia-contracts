@@ -3,6 +3,7 @@ import {
   DEFAULT_BEAT_LABELS,
   PLAN_LIMITS,
   castRefSchema,
+  countEmptyPanels,
   countPanels,
   dialogueKindSchema,
   dialogueLineSchema,
@@ -15,6 +16,7 @@ import {
   sceneCastSchema,
   sceneSchema,
   shotTypeSchema,
+  unresolvedRefs,
 } from './chapter.js';
 import type { CastRef, DialogueLine, Panel, PanelPlanInput, Scene, SceneCast } from './chapter.js';
 import type { ProjectFormat } from './project.js';
@@ -423,5 +425,51 @@ describe('panelPlanSchemaFor: 4-koma', () => {
   it('requires beatLabels: null in manga and manhwa', () => {
     expect(issuePaths('manga', plan(strip()))).toEqual([['scenes', 0, 'beatLabels']]);
     expect(issuePaths('manhwa', plan(scene(), strip()))).toEqual([['scenes', 1, 'beatLabels']]);
+  });
+});
+
+// ---------- approve blockers ----------
+
+describe('unresolvedRefs', () => {
+  const roster: ReadonlySet<string> = new Set([AOI, REN]);
+  const mina: CastRef = { name: 'Mina', extra: false };
+
+  it('is empty when every ref is a roster character or an extra', () => {
+    const s = scene({ cast: [castOf(aoi), castOf(crowd)], panels: [panel({ cast: [aoi, crowd] })] });
+    expect(unresolvedRefs(plan(s), roster)).toEqual({ count: 0, names: [] });
+  });
+
+  it('counts distinct unresolved names case-insensitively, listed in plan order', () => {
+    const first = scene({
+      cast: [castOf(aoi), castOf(kaito), castOf(mina)],
+      panels: [panel({ cast: [aoi, kaito], dialogue: [line({ speaker: mina })] })],
+    });
+    const second = scene({ cast: [castOf(aoi), castOf({ name: 'KAITO', extra: false })] });
+    expect(unresolvedRefs(plan(first, second), roster)).toEqual({ count: 2, names: ['Kaito', 'Mina'] });
+  });
+
+  it('counts a character missing from the roster without naming it', () => {
+    const s = scene({ cast: [castOf(aoi), castOf(ren)], panels: [panel({ cast: [aoi, ren] })] });
+    expect(unresolvedRefs(plan(s), new Set([AOI]))).toEqual({ count: 1, names: [] });
+  });
+});
+
+describe('countEmptyPanels', () => {
+  it('counts panels whose subject and action are both blank after trimming', () => {
+    const s = scene({
+      panels: [
+        panel(),
+        panel({ subject: '', action: '' }),
+        panel({ subject: '  ', action: '\n' }), // unsaved web edits are not trimmed yet
+        panel({ subject: '', action: 'Ren ducks under the railing.' }),
+        panel({ subject: 'Ren at the railing', action: '' }),
+      ],
+    });
+    const another = scene({ panels: [panel({ subject: '', action: '' })] });
+    expect(countEmptyPanels(plan(s, another))).toBe(3);
+  });
+
+  it('is 0 for a fully described plan', () => {
+    expect(countEmptyPanels(plan(scene(), scene()))).toBe(0);
   });
 });

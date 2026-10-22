@@ -74,6 +74,7 @@ const EXPECTED_EXPORTS = [
   'DEFAULT_BEAT_LABELS',
   'PLAN_LIMITS',
   'castRefSchema',
+  'countEmptyPanels',
   'countPanels',
   'dialogueKindSchema',
   'dialogueLineSchema',
@@ -86,6 +87,7 @@ const EXPECTED_EXPORTS = [
   'sceneCastSchema',
   'sceneSchema',
   'shotTypeSchema',
+  'unresolvedRefs',
 ].sort();
 
 describe('barrel exports', () => {
