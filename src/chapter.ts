@@ -156,7 +156,35 @@ const sceneCastEntries: PlanRule = (plan) => {
   return issues;
 };
 
-const PLAN_RULES: PlanRule[] = [totalPanels, uniqueIds, sceneCastEntries];
+// Closure: every panel cast ref and speaker is in its scene's cast (by refKey). Captions and
+// sound effects never have a speaker; speech and thought may have none (an unknown voice).
+const panelRefs: PlanRule = (plan) => {
+  const issues: PlanIssue[] = [];
+  plan.scenes.forEach((scene, si) => {
+    const sceneKeys = new Set(scene.cast.map((entry) => refKey(entry.ref)));
+    scene.panels.forEach((panel, pi) => {
+      const at = ['scenes', si, 'panels', pi];
+      panel.cast.forEach((ref, ri) => {
+        if (!sceneKeys.has(refKey(ref))) {
+          issues.push({ path: [...at, 'cast', ri], message: 'Panel cast must be in the scene cast' });
+        }
+      });
+      panel.dialogue.forEach((line, li) => {
+        const path = [...at, 'dialogue', li, 'speaker'];
+        if (line.kind === 'caption' || line.kind === 'sfx') {
+          if (line.speaker !== null) {
+            issues.push({ path, message: 'Captions and sound effects have no speaker' });
+          }
+        } else if (line.speaker !== null && !sceneKeys.has(refKey(line.speaker))) {
+          issues.push({ path, message: 'Speakers must be in the scene cast' });
+        }
+      });
+    });
+  });
+  return issues;
+};
+
+const PLAN_RULES: PlanRule[] = [totalPanels, uniqueIds, sceneCastEntries, panelRefs];
 
 /**
  * panelPlanInputSchema plus the cross-field rules for one project format. The server applies it

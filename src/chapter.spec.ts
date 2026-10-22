@@ -346,3 +346,51 @@ describe('panelPlanSchemaFor: scene cast', () => {
     expect(issuePaths('manga', plan(nameWithOutfit))).toEqual([['scenes', 0, 'cast', 1, 'outfitId']]);
   });
 });
+
+describe('panelPlanSchemaFor: closure', () => {
+  it('flags a panel cast member missing from the scene cast', () => {
+    const s = scene({ panels: [panel({ cast: [aoi, ren] })] });
+    expect(issuePaths('manga', plan(s))).toEqual([['scenes', 0, 'panels', 0, 'cast', 1]]);
+  });
+
+  it('flags a speaker missing from the scene cast', () => {
+    const s = scene({ panels: [panel({ dialogue: [line({ speaker: ren })] })] });
+    expect(issuePaths('manga', plan(s))).toEqual([['scenes', 0, 'panels', 0, 'dialogue', 0, 'speaker']]);
+  });
+
+  it('matches refs by refKey', () => {
+    const s = scene({
+      cast: [castOf(aoi), castOf(kaito)],
+      panels: [panel({ cast: [aoi, { name: 'KAITO', extra: false }] })],
+    });
+    expect(issuePaths('manga', plan(s))).toEqual([]);
+  });
+
+  it('allows an off-panel speaker who is in the scene cast', () => {
+    const s = scene({
+      cast: [castOf(aoi), castOf(ren)],
+      panels: [panel({ cast: [aoi], dialogue: [line({ speaker: ren })] })],
+    });
+    expect(issuePaths('manga', plan(s))).toEqual([]);
+  });
+});
+
+describe('panelPlanSchemaFor: speakers', () => {
+  it('flags a caption or a sound effect with a speaker', () => {
+    const dialogue = [line({ kind: 'caption', speaker: aoi }), line({ kind: 'sfx', speaker: aoi })];
+    expect(issuePaths('manga', plan(scene({ panels: [panel({ dialogue })] })))).toEqual([
+      ['scenes', 0, 'panels', 0, 'dialogue', 0, 'speaker'],
+      ['scenes', 0, 'panels', 0, 'dialogue', 1, 'speaker'],
+    ]);
+  });
+
+  it('accepts captions and sound effects without a speaker, and speech from an unknown voice', () => {
+    const dialogue = [
+      line({ kind: 'caption', speaker: null, text: 'Three days later.' }),
+      line({ kind: 'sfx', speaker: null, text: 'KRAK' }),
+      line({ kind: 'speech', speaker: null, text: 'Who goes there?' }),
+      line({ kind: 'thought', speaker: aoi, text: 'Not again.' }),
+    ];
+    expect(issuePaths('manga', plan(scene({ panels: [panel({ dialogue })] })))).toEqual([]);
+  });
+});
