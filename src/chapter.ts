@@ -1,6 +1,8 @@
 import { z } from 'zod';
-import { entityIdSchema, objectIdSchema, uuidSchema } from './primitives.js';
+import { entityIdSchema, isoDateTimeSchema, objectIdSchema, uuidSchema } from './primitives.js';
+import { titleSchema } from './project.js';
 import type { ProjectFormat } from './project.js';
+import { SCRIPT_LIMITS } from './script.js';
 
 export const PLAN_LIMITS = {
   scenes: 30,
@@ -267,3 +269,67 @@ export function countEmptyPanels(plan: PanelPlanInput): number {
   }
   return n;
 }
+
+// ---------- chapter document ----------
+
+// Derived on read, never stored: no plan → draft, plan → planned, approval → approved.
+export const chapterStatusSchema = z.enum(['draft', 'planned', 'approved']);
+
+export const parseStateSchema = z.enum(['idle', 'queued', 'running', 'done', 'failed']);
+
+export const parseErrorCodeSchema = z.enum([
+  'PARSE_FAILED',
+  'AI_UNAVAILABLE',
+  'PLAN_TOO_LARGE',
+  'PARSE_TIMEOUT',
+]);
+
+export const parseStatusSchema = z.object({
+  state: parseStateSchema, // PARSE_TIMEOUT is applied when the chapter is read
+  errorCode: parseErrorCodeSchema.nullable(), // non-null iff state === 'failed'
+  queuedAt: isoDateTimeSchema.nullable(), // elapsed time is computed from this
+  attempt: z.number().int().min(0).max(2), // 2 = "Retrying…"
+  finishedAt: isoDateTimeSchema.nullable(),
+});
+
+export const approvalSchema = z.object({
+  amount: z.number().int().positive(),
+  tier: planTierSchema,
+  panelCount: z.number().int().positive(),
+  approvedAt: isoDateTimeSchema,
+});
+
+export const chapterSchema = z.object({
+  id: objectIdSchema,
+  projectId: objectIdSchema,
+  number: z.number().int().positive(),
+  title: titleSchema,
+  script: z.string().max(SCRIPT_LIMITS.maxChars),
+  status: chapterStatusSchema,
+  parse: parseStatusSchema,
+  plan: panelPlanSchema.nullable(),
+  approval: approvalSchema.nullable(),
+  createdAt: isoDateTimeSchema,
+  updatedAt: isoDateTimeSchema,
+});
+
+export const chapterSummarySchema = chapterSchema
+  .pick({ id: true, number: true, title: true, status: true, updatedAt: true })
+  .extend({
+    parse: parseStatusSchema.pick({ state: true, errorCode: true }),
+    panelCount: z.number().int().nonnegative(),
+  });
+
+export const chapterListSchema = z.object({
+  items: z.array(chapterSummarySchema),
+  total: z.number().int().nonnegative(),
+});
+
+export type ChapterStatus = z.infer<typeof chapterStatusSchema>;
+export type ParseState = z.infer<typeof parseStateSchema>;
+export type ParseErrorCode = z.infer<typeof parseErrorCodeSchema>;
+export type ParseStatus = z.infer<typeof parseStatusSchema>;
+export type Approval = z.infer<typeof approvalSchema>;
+export type Chapter = z.infer<typeof chapterSchema>;
+export type ChapterSummary = z.infer<typeof chapterSummarySchema>;
+export type ChapterList = z.infer<typeof chapterListSchema>;

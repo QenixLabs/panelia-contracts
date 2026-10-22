@@ -3,6 +3,10 @@ import {
   DEFAULT_BEAT_LABELS,
   PLAN_LIMITS,
   castRefSchema,
+  chapterListSchema,
+  chapterSchema,
+  chapterStatusSchema,
+  chapterSummarySchema,
   countEmptyPanels,
   countPanels,
   dialogueKindSchema,
@@ -11,6 +15,9 @@ import {
   panelPlanSchema,
   panelPlanSchemaFor,
   panelSchema,
+  parseErrorCodeSchema,
+  parseStateSchema,
+  parseStatusSchema,
   planTierSchema,
   refKey,
   sceneCastSchema,
@@ -18,7 +25,18 @@ import {
   shotTypeSchema,
   unresolvedRefs,
 } from './chapter.js';
-import type { CastRef, DialogueLine, Panel, PanelPlanInput, Scene, SceneCast } from './chapter.js';
+import type {
+  CastRef,
+  Chapter,
+  ChapterList,
+  ChapterSummary,
+  DialogueLine,
+  Panel,
+  PanelPlanInput,
+  ParseStatus,
+  Scene,
+  SceneCast,
+} from './chapter.js';
 import type { ProjectFormat } from './project.js';
 
 // ---------- fixtures ----------
@@ -471,5 +489,122 @@ describe('countEmptyPanels', () => {
 
   it('is 0 for a fully described plan', () => {
     expect(countEmptyPanels(plan(scene(), scene()))).toBe(0);
+  });
+});
+
+// ---------- chapter document ----------
+
+const PROJECT = '64b7f0c2a1b2c3d4e5f60700';
+const CHAPTER = '64b7f0c2a1b2c3d4e5f60701';
+const AT = '2026-10-22T09:30:00.000Z';
+
+const idle: ParseStatus = {
+  state: 'idle', errorCode: null, queuedAt: null, attempt: 0, finishedAt: null,
+};
+
+function chapter(over: Partial<Chapter> = {}): Chapter {
+  return {
+    id: CHAPTER,
+    projectId: PROJECT,
+    number: 3,
+    title: 'The Rooftop',
+    script: 'INT. ROOFTOP - DUSK\nAoi shoulders the door open.\nAOI: We have to move. Now.',
+    status: 'planned',
+    parse: { state: 'done', errorCode: null, queuedAt: AT, attempt: 1, finishedAt: AT },
+    plan: { ...plan(), revision: 2 },
+    approval: null,
+    createdAt: AT,
+    updatedAt: AT,
+    ...over,
+  };
+}
+
+describe('chapter status and parse enums', () => {
+  it('exposes the derived statuses, parse states and parse failure codes', () => {
+    expect(chapterStatusSchema.options).toEqual(['draft', 'planned', 'approved']);
+    expect(parseStateSchema.options).toEqual(['idle', 'queued', 'running', 'done', 'failed']);
+    expect(parseErrorCodeSchema.options).toEqual([
+      'PARSE_FAILED', 'AI_UNAVAILABLE', 'PLAN_TOO_LARGE', 'PARSE_TIMEOUT',
+    ]);
+  });
+});
+
+describe('parseStatusSchema', () => {
+  it('accepts attempts 0 to 2 and rejects 3', () => {
+    for (const attempt of [0, 1, 2]) {
+      expect(parseStatusSchema.safeParse({ ...idle, attempt }).success).toBe(true);
+    }
+    expect(parseStatusSchema.safeParse({ ...idle, attempt: 3 }).success).toBe(false);
+  });
+
+  it('carries a known failure code', () => {
+    const failed: ParseStatus = {
+      state: 'failed', errorCode: 'PARSE_TIMEOUT', queuedAt: AT, attempt: 2, finishedAt: null,
+    };
+    expect(parseStatusSchema.parse(failed)).toEqual(failed);
+    expect(parseStatusSchema.safeParse({ ...failed, errorCode: 'BOOM' }).success).toBe(false);
+  });
+});
+
+describe('chapterSchema', () => {
+  it('round-trips a planned chapter', () => {
+    const c = chapter();
+    expect(chapterSchema.parse(c)).toEqual(c);
+  });
+
+  it('round-trips a draft chapter and an approved one', () => {
+    const draft = chapter({ status: 'draft', parse: idle, plan: null, script: '' });
+    expect(chapterSchema.parse(draft)).toEqual(draft);
+    const approved = chapter({
+      status: 'approved',
+      approval: { amount: 5, tier: 'draft', panelCount: 1, approvedAt: AT },
+    });
+    expect(chapterSchema.parse(approved)).toEqual(approved);
+  });
+
+  it('rejects ids that are not Mongo ids', () => {
+    expect(chapterSchema.safeParse(chapter({ id: 'ch_1' })).success).toBe(false);
+    expect(chapterSchema.safeParse(chapter({ projectId: 'p_ashfall' })).success).toBe(false);
+  });
+
+  it('caps the script at 30,000 characters', () => {
+    expect(chapterSchema.safeParse(chapter({ script: 'x'.repeat(30_000) })).success).toBe(true);
+    expect(chapterSchema.safeParse(chapter({ script: 'x'.repeat(30_001) })).success).toBe(false);
+  });
+
+  it('requires a positive plan revision and approval amount', () => {
+    expect(chapterSchema.safeParse(chapter({ plan: { ...plan(), revision: 0 } })).success).toBe(false);
+    const approval = { amount: 0, tier: 'draft', panelCount: 1, approvedAt: AT } as const;
+    expect(chapterSchema.safeParse(chapter({ approval })).success).toBe(false);
+  });
+});
+
+describe('chapterSummarySchema / chapterListSchema', () => {
+  const summary: ChapterSummary = {
+    id: CHAPTER,
+    number: 3,
+    title: 'The Rooftop',
+    status: 'planned',
+    updatedAt: AT,
+    parse: { state: 'done', errorCode: null },
+    panelCount: 14,
+  };
+
+  it('parses a summary', () => {
+    expect(chapterSummarySchema.parse(summary)).toEqual(summary);
+  });
+
+  it('keeps only the summary fields of a full chapter', () => {
+    const parsed = chapterSummarySchema.parse({ ...chapter(), panelCount: 1 });
+    expect(Object.keys(parsed).sort()).toEqual([
+      'id', 'number', 'panelCount', 'parse', 'status', 'title', 'updatedAt',
+    ]);
+    expect(parsed.parse).toEqual({ state: 'done', errorCode: null });
+  });
+
+  it('parses a list and rejects a negative panel count', () => {
+    const list: ChapterList = { items: [summary], total: 1 };
+    expect(chapterListSchema.parse(list)).toEqual(list);
+    expect(chapterSummarySchema.safeParse({ ...summary, panelCount: -1 }).success).toBe(false);
   });
 });
