@@ -8,7 +8,9 @@ const EXPECTED_EXPORTS = [
   'apiSuccessSchema',
   'entityIdSchema',
   'isoDateTimeSchema',
+  'objectIdSchema',
   'urlSchema',
+  'uuidSchema',
   // auth / user
   'authResponseSchema',
   'authTokensSchema',
@@ -26,6 +28,7 @@ const EXPECTED_EXPORTS = [
   'projectListSchema',
   'projectSchema',
   'ratingSchema',
+  'titleSchema',
   'updateProjectInputSchema',
   // style
   'artDirectionSchema',
