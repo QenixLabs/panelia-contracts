@@ -7,6 +7,7 @@ import {
   creditEntryTypeSchema,
   creditSummarySchema,
   planCost,
+  renderCost,
 } from './credits.js';
 import type { CreditEntry, CreditSummary } from './credits.js';
 
@@ -22,6 +23,7 @@ const entry: CreditEntry = {
   availableAfter: 80,
   reservedAfter: 70,
   memo: 'Ch. 3 · The Rooftop',
+  count: 1,
   createdAt: '2026-10-22T09:30:00.000Z',
 };
 
@@ -55,6 +57,19 @@ describe('planCost', () => {
   });
 });
 
+describe('renderCost', () => {
+  it('prices a number of panels at the tier price', () => {
+    expect(renderCost(1, 'draft')).toBe(5);
+    expect(renderCost(2, 'hq')).toBe(24);
+    expect(renderCost(14, 'draft')).toBe(70);
+    expect(renderCost(0, 'hq')).toBe(0);
+  });
+
+  it('agrees with planCost', () => {
+    expect(renderCost(14, 'hq')).toBe(planCost(planOf(3, 4, 3, 4), 'hq'));
+  });
+});
+
 describe('creditEntrySchema', () => {
   it('round-trips a reserve entry', () => {
     expect(creditEntrySchema.parse(entry)).toEqual(entry);
@@ -62,6 +77,18 @@ describe('creditEntrySchema', () => {
 
   it('has the four ledger entry types', () => {
     expect(creditEntryTypeSchema.options).toEqual(['grant', 'reserve', 'release', 'charge']);
+  });
+
+  it('round-trips a group of 9 charges of one chapter', () => {
+    const group: CreditEntry = { ...entry, type: 'charge', amount: 45, availableAfter: 80, reservedAfter: 25, count: 9 };
+    expect(creditEntrySchema.parse(group)).toEqual(group);
+  });
+
+  it('requires a positive integer count', () => {
+    expect(creditEntrySchema.safeParse({ ...entry, count: 0 }).success).toBe(false);
+    expect(creditEntrySchema.safeParse({ ...entry, count: 1.5 }).success).toBe(false);
+    const { count: _, ...withoutCount } = entry;
+    expect(creditEntrySchema.safeParse(withoutCount).success).toBe(false);
   });
 
   it('rejects a zero amount, a negative balance and an unknown type', () => {

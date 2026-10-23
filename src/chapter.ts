@@ -1,36 +1,22 @@
 import { z } from 'zod';
 import { characterTraitsSchema, outfitSchema } from './character.js';
+import { PLAN_LIMITS, planTierSchema, shotTypeSchema } from './plan-basics.js';
 import { entityIdSchema, isoDateTimeSchema, objectIdSchema, uuidSchema } from './primitives.js';
 import { titleSchema } from './project.js';
 import type { ProjectFormat } from './project.js';
+import { renderRunSchema } from './render.js';
+import type { RenderRunState } from './render.js';
 import { SCRIPT_LIMITS } from './script.js';
 import { styleProfileSchema } from './style.js';
 
-export const PLAN_LIMITS = {
-  scenes: 30,
-  panels: 60,
-  panelsPerScene: 40,
-  dialogueLines: 8,
-  panelCast: 8,
-  sceneCast: 12,
-} as const;
+// Moved to plan-basics.ts, a leaf module that render.ts can import without a cycle.
+// Re-exported here, so the package's exports are unchanged.
+export { PLAN_LIMITS, planTierSchema, shotTypeSchema };
+export type { PlanTier, ShotType } from './plan-basics.js';
 
 export const DEFAULT_BEAT_LABELS = ['Setup', 'Development', 'Turn', 'Punchline'] as const;
 
-export const shotTypeSchema = z.enum([
-  'establishing',
-  'wide',
-  'medium',
-  'close_up',
-  'extreme_close_up',
-  'over_shoulder',
-  'pov',
-  'insert',
-]);
-
 export const dialogueKindSchema = z.enum(['speech', 'thought', 'caption', 'sfx']);
-
-export const planTierSchema = z.enum(['draft', 'hq']);
 
 // A cast reference is either a roster character or a name.
 // extra: false = unresolved name (blocks approve). extra: true = unnamed background person.
@@ -94,9 +80,7 @@ export function countPanels(plan: { scenes: readonly { panels: readonly unknown[
   return plan.scenes.reduce((n, scene) => n + scene.panels.length, 0);
 }
 
-export type ShotType = z.infer<typeof shotTypeSchema>;
 export type DialogueKind = z.infer<typeof dialogueKindSchema>;
-export type PlanTier = z.infer<typeof planTierSchema>;
 export type CastRef = z.infer<typeof castRefSchema>;
 export type DialogueLine = z.infer<typeof dialogueLineSchema>;
 export type Panel = z.infer<typeof panelSchema>;
@@ -274,8 +258,8 @@ export function countEmptyPanels(plan: PanelPlanInput): number {
 
 // ---------- chapter document ----------
 
-// Derived on read, never stored: no plan → draft, plan → planned, approval → approved.
-export const chapterStatusSchema = z.enum(['draft', 'planned', 'approved']);
+// Derived on read by chapterStatusFor, never stored.
+export const chapterStatusSchema = z.enum(['draft', 'planned', 'approved', 'rendering', 'rendered']);
 
 export const parseStateSchema = z.enum(['idle', 'queued', 'running', 'done', 'failed']);
 
@@ -311,6 +295,7 @@ export const chapterSchema = z.object({
   parse: parseStatusSchema,
   plan: panelPlanSchema.nullable(),
   approval: approvalSchema.nullable(),
+  render: renderRunSchema.nullable(), // no image URLs, so chapter reads never sign anything
   createdAt: isoDateTimeSchema,
   updatedAt: isoDateTimeSchema,
 });
@@ -320,6 +305,7 @@ export const chapterSummarySchema = chapterSchema
   .extend({
     parse: parseStatusSchema.pick({ state: true, errorCode: true }),
     panelCount: z.number().int().nonnegative(),
+    render: renderRunSchema.pick({ state: true, counts: true }).nullable(),
   });
 
 export const chapterListSchema = z.object({
@@ -335,6 +321,32 @@ export type Approval = z.infer<typeof approvalSchema>;
 export type Chapter = z.infer<typeof chapterSchema>;
 export type ChapterSummary = z.infer<typeof chapterSummarySchema>;
 export type ChapterList = z.infer<typeof chapterListSchema>;
+
+/**
+ * The derived status; the server mapper and the web mocks share it. No plan: draft. A plan:
+ * planned. Approved with no run: approved. A run that is queued, rendering, stopping or stalled:
+ * rendering. A finished run (done, partial, stopped): rendered.
+ */
+export function chapterStatusFor(input: {
+  hasPlan: boolean;
+  approved: boolean;
+  runState: RenderRunState | null;
+}): ChapterStatus {
+  switch (input.runState) {
+    case 'queued':
+    case 'rendering':
+    case 'stopping':
+    case 'stalled':
+      return 'rendering';
+    case 'done':
+    case 'partial':
+    case 'stopped':
+      return 'rendered';
+    case null:
+      if (input.approved) return 'approved';
+      return input.hasPlan ? 'planned' : 'draft';
+  }
+}
 
 // ---------- requests and responses ----------
 
