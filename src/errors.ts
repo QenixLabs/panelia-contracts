@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { uuidSchema } from './primitives.js';
+import { moderationReasonSchema } from './render.js';
 
 export const apiErrorCodeSchema = z.enum([
   // Phase 2
@@ -25,6 +26,13 @@ export const apiErrorCodeSchema = z.enum([
   'CHARACTER_IN_USE',
   'PLAN_UNRESOLVED',
   'PLAN_INCOMPLETE',
+  // Phase 4.1
+  'PANEL_FLAGGED',
+  'MODERATION_UNAVAILABLE',
+  'RENDER_UNAVAILABLE',
+  'RENDER_LOCKED',
+  'RENDER_NOT_RETRYABLE',
+  'NOTHING_TO_RENDER',
 ]);
 
 export type ApiErrorCode = z.infer<typeof apiErrorCodeSchema>;
@@ -38,6 +46,18 @@ export const apiErrorDetailsSchemas = {
   CHARACTER_IN_USE: z.object({ chapterNumbers: z.array(z.number().int()).min(1) }),
   PLAN_UNRESOLVED: z.object({ count: z.number().int().positive(), names: z.array(z.string()) }),
   PLAN_INCOMPLETE: z.object({ emptyPanels: z.number().int().positive() }),
+  PANEL_FLAGGED: z.object({
+    panels: z
+      .array(
+        z.object({
+          panelId: uuidSchema,
+          number: z.number().int().min(1), // 1-based position in the plan
+          reason: moderationReasonSchema,
+        }),
+      )
+      .min(1),
+  }),
+  RENDER_NOT_RETRYABLE: z.object({ panelIds: z.array(uuidSchema).min(1) }),
 } as const satisfies Partial<Record<ApiErrorCode, z.ZodType>>;
 
 export type ApiErrorDetails<C extends keyof typeof apiErrorDetailsSchemas> = z.infer<

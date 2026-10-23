@@ -6,6 +6,7 @@ import type { ApiErrorDetails } from './errors.js';
 type DetailedCode = keyof typeof apiErrorDetailsSchemas;
 
 const SAVE_ID = '9b1c2d3e-4f50-4a6b-8c7d-0e1f2a3b4c5d';
+const PANEL = '00000000-0000-4000-8000-000000000007';
 
 // One valid and one malformed `details` per code that carries details.
 const DETAILS: { [C in DetailedCode]: { valid: ApiErrorDetails<C>; invalid: unknown } } = {
@@ -22,10 +23,15 @@ const DETAILS: { [C in DetailedCode]: { valid: ApiErrorDetails<C>; invalid: unkn
   CHARACTER_IN_USE: { valid: { chapterNumbers: [3] }, invalid: { chapterNumbers: [] } },
   PLAN_UNRESOLVED: { valid: { count: 2, names: ['Kaito', 'Mina'] }, invalid: { count: 0, names: [] } },
   PLAN_INCOMPLETE: { valid: { emptyPanels: 2 }, invalid: { emptyPanels: 0 } },
+  PANEL_FLAGGED: {
+    valid: { panels: [{ panelId: PANEL, number: 7, reason: 'graphic_violence' }] },
+    invalid: { panels: [{ panelId: PANEL, number: 0, reason: 'graphic_violence' }] },
+  },
+  RENDER_NOT_RETRYABLE: { valid: { panelIds: [PANEL] }, invalid: { panelIds: [] } },
 };
 
 describe('apiErrorCodeSchema', () => {
-  it('lists the Phase 2 codes, then the Phase 3 codes', () => {
+  it('lists the Phase 2 codes, then the Phase 3 codes, then the Phase 4.1 codes', () => {
     expect(apiErrorCodeSchema.options).toEqual([
       'RATING_LOCKED',
       'PRESET_FORMAT_MISMATCH',
@@ -48,6 +54,12 @@ describe('apiErrorCodeSchema', () => {
       'CHARACTER_IN_USE',
       'PLAN_UNRESOLVED',
       'PLAN_INCOMPLETE',
+      'PANEL_FLAGGED',
+      'MODERATION_UNAVAILABLE',
+      'RENDER_UNAVAILABLE',
+      'RENDER_LOCKED',
+      'RENDER_NOT_RETRYABLE',
+      'NOTHING_TO_RENDER',
     ]);
   });
 });
@@ -62,6 +74,8 @@ describe('apiErrorDetailsSchemas', () => {
       'CHARACTER_IN_USE',
       'PLAN_UNRESOLVED',
       'PLAN_INCOMPLETE',
+      'PANEL_FLAGGED',
+      'RENDER_NOT_RETRYABLE',
     ]);
   });
 
@@ -69,6 +83,14 @@ describe('apiErrorDetailsSchemas', () => {
     const schema = apiErrorDetailsSchemas[code as DetailedCode];
     expect(schema.parse(cases.valid)).toEqual(cases.valid);
     expect(schema.safeParse(cases.invalid).success).toBe(false);
+  });
+
+  it('PANEL_FLAGGED needs at least one panel and a known reason', () => {
+    expect(apiErrorDetailsSchemas.PANEL_FLAGGED.safeParse({ panels: [] }).success).toBe(false);
+    const unknownReason = { panels: [{ panelId: PANEL, number: 7, reason: 'gore' }] };
+    expect(apiErrorDetailsSchemas.PANEL_FLAGGED.safeParse(unknownReason).success).toBe(false);
+    const notUuid = { panelIds: ['p7'] };
+    expect(apiErrorDetailsSchemas.RENDER_NOT_RETRYABLE.safeParse(notUuid).success).toBe(false);
   });
 
   it('allows a null lastSaveId on PLAN_CONFLICT', () => {
@@ -94,6 +116,22 @@ describe('errorDetails', () => {
     expect(errorDetails({ code: 'PLAN_CONFLICT' }, 'PLAN_CONFLICT')).toBeNull();
     const malformed = { code: 'PLAN_CONFLICT', details: { currentRevision: 'four' } } as const;
     expect(errorDetails(malformed, 'PLAN_CONFLICT')).toBeNull();
+  });
+
+  it('reads the Phase 4.1 details: flagged panels and panels that cannot be retried', () => {
+    const flagged = {
+      code: 'PANEL_FLAGGED',
+      details: {
+        panels: [
+          { panelId: PANEL, number: 7, reason: 'graphic_violence' },
+          { panelId: SAVE_ID, number: 9, reason: 'self_harm' },
+        ],
+      },
+    } as const;
+    expect(errorDetails(flagged, 'PANEL_FLAGGED')?.panels.map((p) => p.number)).toEqual([7, 9]);
+    const notRetryable = { code: 'RENDER_NOT_RETRYABLE', details: { panelIds: [PANEL] } } as const;
+    expect(errorDetails(notRetryable, 'RENDER_NOT_RETRYABLE')).toEqual({ panelIds: [PANEL] });
+    expect(errorDetails({ code: 'RENDER_LOCKED' }, 'RENDER_NOT_RETRYABLE')).toBeNull();
   });
 
   it('reads details straight from a parsed error envelope', () => {
