@@ -111,6 +111,14 @@ const EXPECTED_EXPORTS = [
   'startParseResultSchema',
   'unresolvedRefs',
   'updateChapterInputSchema',
+  // layout
+  'LAYOUT_TEMPLATE',
+  'LAYOUT_UNITS',
+  'layoutDirection',
+  'layoutPageKindSchema',
+  'layoutPageSchema',
+  'layoutSchema',
+  'slotSchema',
   // credits
   'CREDIT_PRICES',
   'TRIAL_GRANT',

@@ -11,5 +11,6 @@ export * from './character.js';
 export * from './auth.js';
 export * from './script.js';
 export * from './chapter.js';
+export * from './layout.js';
 export * from './credits.js';
 export * from './job-events.js';
