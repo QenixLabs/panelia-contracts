@@ -85,6 +85,7 @@ const EXPECTED_EXPORTS = [
   'chapterContextSchema',
   'chapterListSchema',
   'chapterSchema',
+  'chapterStatusFor',
   'chapterStatusSchema',
   'chapterSummarySchema',
   'countEmptyPanels',

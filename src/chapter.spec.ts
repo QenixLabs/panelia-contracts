@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_BEAT_LABELS,
   PLAN_LIMITS,
@@ -7,6 +7,7 @@ import {
   chapterContextSchema,
   chapterListSchema,
   chapterSchema,
+  chapterStatusFor,
   chapterStatusSchema,
   chapterSummarySchema,
   countEmptyPanels,
@@ -40,6 +41,7 @@ import type {
   Chapter,
   ChapterContext,
   ChapterList,
+  ChapterStatus,
   ChapterSummary,
   DialogueLine,
   Panel,
@@ -52,6 +54,7 @@ import type {
 } from './chapter.js';
 import { getPreset } from './preset.js';
 import type { ProjectFormat } from './project.js';
+import type { RenderRun, RenderRunState } from './render.js';
 
 // ---------- fixtures ----------
 
@@ -516,6 +519,17 @@ const idle: ParseStatus = {
   state: 'idle', errorCode: null, queuedAt: null, attempt: 0, finishedAt: null,
 };
 
+const RUN: RenderRun = {
+  runId: '3f2b8c1e-9a4d-4f6b-8c2a-1d5e7f9a0b3c',
+  state: 'rendering',
+  tier: 'draft',
+  counts: { total: 14, rendered: 9, failed: 1, notRendered: 0, active: 4 },
+  credits: { charged: 45, reserved: 20, released: 5 },
+  providerHealthy: true,
+  startedAt: AT,
+  finishedAt: null,
+};
+
 function chapter(over: Partial<Chapter> = {}): Chapter {
   return {
     id: CHAPTER,
@@ -527,6 +541,7 @@ function chapter(over: Partial<Chapter> = {}): Chapter {
     parse: { state: 'done', errorCode: null, queuedAt: AT, attempt: 1, finishedAt: AT },
     plan: { ...plan(), revision: 2 },
     approval: null,
+    render: null,
     createdAt: AT,
     updatedAt: AT,
     ...over,
@@ -535,7 +550,7 @@ function chapter(over: Partial<Chapter> = {}): Chapter {
 
 describe('chapter status and parse enums', () => {
   it('exposes the derived statuses, parse states and parse failure codes', () => {
-    expect(chapterStatusSchema.options).toEqual(['draft', 'planned', 'approved']);
+    expect(chapterStatusSchema.options).toEqual(['draft', 'planned', 'approved', 'rendering', 'rendered']);
     expect(parseStateSchema.options).toEqual(['idle', 'queued', 'running', 'done', 'failed']);
     expect(parseErrorCodeSchema.options).toEqual([
       'PARSE_FAILED', 'AI_UNAVAILABLE', 'PLAN_TOO_LARGE', 'PARSE_TIMEOUT',
@@ -576,6 +591,18 @@ describe('chapterSchema', () => {
     expect(chapterSchema.parse(approved)).toEqual(approved);
   });
 
+  it('round-trips a rendering chapter with its run (no image URLs)', () => {
+    const approval = { amount: 70, tier: 'draft', panelCount: 14, approvedAt: AT } as const;
+    const rendering = chapter({ status: 'rendering', approval, render: RUN });
+    expect(chapterSchema.parse(rendering)).toEqual(rendering);
+    expect(chapterSchema.safeParse({ ...rendering, render: { ...RUN, state: 'paused' } }).success).toBe(false);
+  });
+
+  it('requires the render field (null before a run)', () => {
+    const { render: _, ...withoutRender } = chapter();
+    expect(chapterSchema.safeParse(withoutRender).success).toBe(false);
+  });
+
   it('rejects ids that are not Mongo ids', () => {
     expect(chapterSchema.safeParse(chapter({ id: 'ch_1' })).success).toBe(false);
     expect(chapterSchema.safeParse(chapter({ projectId: 'p_ashfall' })).success).toBe(false);
@@ -602,6 +629,7 @@ describe('chapterSummarySchema / chapterListSchema', () => {
     updatedAt: AT,
     parse: { state: 'done', errorCode: null },
     panelCount: 14,
+    render: null,
   };
 
   it('parses a summary', () => {
@@ -611,15 +639,48 @@ describe('chapterSummarySchema / chapterListSchema', () => {
   it('keeps only the summary fields of a full chapter', () => {
     const parsed = chapterSummarySchema.parse({ ...chapter(), panelCount: 1 });
     expect(Object.keys(parsed).sort()).toEqual([
-      'id', 'number', 'panelCount', 'parse', 'status', 'title', 'updatedAt',
+      'id', 'number', 'panelCount', 'parse', 'render', 'status', 'title', 'updatedAt',
     ]);
     expect(parsed.parse).toEqual({ state: 'done', errorCode: null });
+  });
+
+  it('keeps only the state and counts of the run', () => {
+    const parsed = chapterSummarySchema.parse({ ...summary, status: 'rendering', render: RUN });
+    expect(parsed.render).toEqual({ state: 'rendering', counts: RUN.counts });
   });
 
   it('parses a list and rejects a negative panel count', () => {
     const list: ChapterList = { items: [summary], total: 1 };
     expect(chapterListSchema.parse(list)).toEqual(list);
     expect(chapterSummarySchema.safeParse({ ...summary, panelCount: -1 }).success).toBe(false);
+  });
+});
+
+describe('chapterStatusFor', () => {
+  const table: Array<[boolean, boolean, RenderRunState | null, ChapterStatus]> = [
+    [false, false, null, 'draft'],
+    [true, false, null, 'planned'],
+    [true, true, null, 'approved'],
+    [true, true, 'queued', 'rendering'],
+    [true, true, 'rendering', 'rendering'],
+    [true, true, 'stopping', 'rendering'],
+    [true, true, 'stalled', 'rendering'],
+    [true, true, 'done', 'rendered'],
+    [true, true, 'partial', 'rendered'],
+    [true, true, 'stopped', 'rendered'],
+  ];
+
+  it.each(table)('plan %s, approved %s, run %s: %s', (hasPlan, approved, runState, status) => {
+    expect(chapterStatusFor({ hasPlan, approved, runState })).toBe(status);
+  });
+});
+
+describe('chapter.ts in the module graph', () => {
+  it('loads first in a fresh module graph and embeds the run schema of render.ts', async () => {
+    vi.resetModules();
+    const fresh = await import('./chapter.js');
+    const render = await import('./render.js');
+    expect(fresh.chapterSchema.shape.render.unwrap()).toBe(render.renderRunSchema);
   });
 });
 
