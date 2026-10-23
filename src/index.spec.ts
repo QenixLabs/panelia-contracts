@@ -142,6 +142,7 @@ const EXPECTED_EXPORTS = [
   'creditEntryTypeSchema',
   'creditSummarySchema',
   'planCost',
+  'renderCost',
   // job events
   'chapterRenderEventSchema',
   'jobEventSchema',
