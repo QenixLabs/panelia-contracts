@@ -1,36 +1,20 @@
 import { z } from 'zod';
 import { characterTraitsSchema, outfitSchema } from './character.js';
+import { PLAN_LIMITS, planTierSchema, shotTypeSchema } from './plan-basics.js';
 import { entityIdSchema, isoDateTimeSchema, objectIdSchema, uuidSchema } from './primitives.js';
 import { titleSchema } from './project.js';
 import type { ProjectFormat } from './project.js';
 import { SCRIPT_LIMITS } from './script.js';
 import { styleProfileSchema } from './style.js';
 
-export const PLAN_LIMITS = {
-  scenes: 30,
-  panels: 60,
-  panelsPerScene: 40,
-  dialogueLines: 8,
-  panelCast: 8,
-  sceneCast: 12,
-} as const;
+// Moved to plan-basics.ts, a leaf module that render.ts can import without a cycle.
+// Re-exported here, so the package's exports are unchanged.
+export { PLAN_LIMITS, planTierSchema, shotTypeSchema };
+export type { PlanTier, ShotType } from './plan-basics.js';
 
 export const DEFAULT_BEAT_LABELS = ['Setup', 'Development', 'Turn', 'Punchline'] as const;
 
-export const shotTypeSchema = z.enum([
-  'establishing',
-  'wide',
-  'medium',
-  'close_up',
-  'extreme_close_up',
-  'over_shoulder',
-  'pov',
-  'insert',
-]);
-
 export const dialogueKindSchema = z.enum(['speech', 'thought', 'caption', 'sfx']);
-
-export const planTierSchema = z.enum(['draft', 'hq']);
 
 // A cast reference is either a roster character or a name.
 // extra: false = unresolved name (blocks approve). extra: true = unnamed background person.
@@ -94,9 +78,7 @@ export function countPanels(plan: { scenes: readonly { panels: readonly unknown[
   return plan.scenes.reduce((n, scene) => n + scene.panels.length, 0);
 }
 
-export type ShotType = z.infer<typeof shotTypeSchema>;
 export type DialogueKind = z.infer<typeof dialogueKindSchema>;
-export type PlanTier = z.infer<typeof planTierSchema>;
 export type CastRef = z.infer<typeof castRefSchema>;
 export type DialogueLine = z.infer<typeof dialogueLineSchema>;
 export type Panel = z.infer<typeof panelSchema>;
