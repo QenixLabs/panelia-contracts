@@ -143,7 +143,9 @@ const EXPECTED_EXPORTS = [
   'creditSummarySchema',
   'planCost',
   // job events
+  'chapterRenderEventSchema',
   'jobEventSchema',
+  'panelRenderEventSchema',
   'scriptParseEventSchema',
 ].sort();
 
