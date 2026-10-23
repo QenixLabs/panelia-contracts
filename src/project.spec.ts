@@ -6,6 +6,7 @@ import {
   projectListSchema,
   projectSchema,
   ratingSchema,
+  titleSchema,
   updateProjectInputSchema,
 } from './project.js';
 import type {
@@ -225,6 +226,15 @@ describe('projectSchema Phase 2 fields', () => {
   it('requires style', () => {
     const { style: _s, ...rest } = baseProject;
     expect(() => projectSchema.parse({ ...rest, format: 'manga' })).toThrow();
+  });
+});
+
+describe('titleSchema', () => {
+  it('is exported for chapter titles: trimmed, 1 to 120 chars', () => {
+    expect(titleSchema.parse('  Chapter 1  ')).toBe('Chapter 1');
+    expect(titleSchema.safeParse('x'.repeat(120)).success).toBe(true);
+    expect(titleSchema.safeParse('x'.repeat(121)).success).toBe(false);
+    expect(titleSchema.safeParse('   ').success).toBe(false);
   });
 });
 

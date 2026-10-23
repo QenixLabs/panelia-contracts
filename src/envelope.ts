@@ -14,6 +14,7 @@ export const apiErrorSchema = z.object({
   data: z.null(),
   success: z.literal(false),
   code: apiErrorCodeSchema.optional(),
+  details: z.record(z.string(), z.unknown()).optional(), // shape per code: apiErrorDetailsSchemas
 });
 
 const successBase = apiSuccessSchema(z.unknown());

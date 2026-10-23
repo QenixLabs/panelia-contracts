@@ -71,3 +71,26 @@ describe('ApiSuccess type', () => {
     expect(envelope.data.id).toBe('usr_1');
   });
 });
+
+describe('apiErrorSchema details', () => {
+  const base = {
+    message: 'Not enough credits for this plan',
+    data: null,
+    success: false,
+    code: 'INSUFFICIENT_CREDITS',
+  } as const;
+
+  it('accepts an error without details', () => {
+    expect(apiErrorSchema.parse(base).details).toBeUndefined();
+  });
+
+  it('passes details through untouched', () => {
+    const details = { required: 70, available: 60 };
+    expect(apiErrorSchema.parse({ ...base, details }).details).toEqual(details);
+  });
+
+  it('rejects details that are not an object', () => {
+    expect(apiErrorSchema.safeParse({ ...base, details: 'nope' }).success).toBe(false);
+    expect(apiErrorSchema.safeParse({ ...base, details: [70, 60] }).success).toBe(false);
+  });
+});

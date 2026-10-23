@@ -4,11 +4,15 @@ import * as contracts from './index.js';
 const EXPECTED_EXPORTS = [
   // primitives / envelope / errors
   'apiErrorCodeSchema',
+  'apiErrorDetailsSchemas',
   'apiErrorSchema',
   'apiSuccessSchema',
   'entityIdSchema',
+  'errorDetails',
   'isoDateTimeSchema',
+  'objectIdSchema',
   'urlSchema',
+  'uuidSchema',
   // auth / user
   'authResponseSchema',
   'authTokensSchema',
@@ -16,9 +20,6 @@ const EXPECTED_EXPORTS = [
   'registerInputSchema',
   'userPlanSchema',
   'userSchema',
-  // jobs
-  'jobStateSchema',
-  'jobStatusEventSchema',
   // project
   'createProjectInputSchema',
   'komaVariantSchema',
@@ -26,6 +27,7 @@ const EXPECTED_EXPORTS = [
   'projectListSchema',
   'projectSchema',
   'ratingSchema',
+  'titleSchema',
   'updateProjectInputSchema',
   // style
   'artDirectionSchema',
@@ -40,6 +42,13 @@ const EXPECTED_EXPORTS = [
   'presetListSchema',
   'presetSchema',
   'presetsForFormat',
+  // series rules
+  'SeriesRuleError',
+  'applyFormatChange',
+  'komaVariantFor',
+  'resolvePreset',
+  'resolveSeriesUpdate',
+  'sameStyle',
   // asset
   'MAX_ASSET_BYTES',
   'MAX_REFS_PER_CHARACTER',
@@ -64,6 +73,54 @@ const EXPECTED_EXPORTS = [
   'outfitSchema',
   'traitSchema',
   'updateCharacterInputSchema',
+  // script
+  'SCRIPT_LIMITS',
+  'countWords',
+  // chapter
+  'DEFAULT_BEAT_LABELS',
+  'PLAN_LIMITS',
+  'approvalSchema',
+  'approvePlanInputSchema',
+  'castRefSchema',
+  'chapterContextSchema',
+  'chapterListSchema',
+  'chapterSchema',
+  'chapterStatusSchema',
+  'chapterSummarySchema',
+  'countEmptyPanels',
+  'countPanels',
+  'createChapterInputSchema',
+  'dialogueKindSchema',
+  'dialogueLineSchema',
+  'panelContextSchema',
+  'panelPlanInputSchema',
+  'panelPlanSchema',
+  'panelPlanSchemaFor',
+  'panelSchema',
+  'parseErrorCodeSchema',
+  'parseStateSchema',
+  'parseStatusSchema',
+  'planTierSchema',
+  'refKey',
+  'savePlanInputSchema',
+  'savePlanResultSchema',
+  'sceneCastSchema',
+  'sceneSchema',
+  'shotTypeSchema',
+  'startParseInputSchema',
+  'startParseResultSchema',
+  'unresolvedRefs',
+  'updateChapterInputSchema',
+  // credits
+  'CREDIT_PRICES',
+  'TRIAL_GRANT',
+  'creditEntrySchema',
+  'creditEntryTypeSchema',
+  'creditSummarySchema',
+  'planCost',
+  // job events
+  'jobEventSchema',
+  'scriptParseEventSchema',
 ].sort();
 
 describe('barrel exports', () => {

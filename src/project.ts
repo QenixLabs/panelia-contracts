@@ -8,7 +8,7 @@ export const ratingSchema = z.enum(['all_ages', 'teen', 'mature', 'adult_18plus'
 
 export const komaVariantSchema = z.enum(['classic_vertical']);
 
-const titleSchema = z.string().trim().min(1).max(120);
+export const titleSchema = z.string().trim().min(1).max(120);
 const presetIdSchema = z.string().regex(/^[a-z0-9_]+$/);
 
 export const projectSchema = z.object({

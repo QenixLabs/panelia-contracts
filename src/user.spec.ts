@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { userSchema, userPlanSchema } from './user.js';
 import type { User, UserPlan } from './user.js';
-import { jobStateSchema, jobStatusEventSchema } from './job-status.js';
-import type { JobState, JobStatusEvent } from './job-status.js';
 import { entityIdSchema, isoDateTimeSchema, urlSchema } from './primitives.js';
 
 describe('primitives', () => {
@@ -85,42 +83,5 @@ describe('userSchema', () => {
 describe('userPlanSchema', () => {
   it('exposes the four plans', () => {
     expect(userPlanSchema.options).toEqual(['free', 'pro', 'studio', 'max']);
-  });
-});
-
-describe('jobStatusEventSchema', () => {
-  it('parses all four states', () => {
-    for (const state of ['queued', 'rendering', 'done', 'failed'] as const) {
-      const event = jobStatusEventSchema.parse({ state });
-      expect(event.state).toBe(state);
-    }
-  });
-
-  it('accepts optional panelId and error', () => {
-    const event = jobStatusEventSchema.parse({
-      state: 'failed',
-      panelId: 'pnl_1',
-      error: 'boom',
-    });
-    expect(event.panelId).toBe('pnl_1');
-    expect(event.error).toBe('boom');
-  });
-
-  it('rejects an unknown state', () => {
-    expect(() => jobStatusEventSchema.parse({ state: 'waiting' })).toThrow();
-  });
-
-  it('exposes the JobState enum', () => {
-    expect(jobStateSchema.options).toEqual([
-      'queued',
-      'rendering',
-      'done',
-      'failed',
-    ]);
-  });
-
-  it('carries the JobStatusEvent type', () => {
-    const event: JobStatusEvent = { state: 'queued' as JobState };
-    expect(event.state).toBe('queued');
   });
 });
