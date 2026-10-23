@@ -114,6 +114,7 @@ const EXPECTED_EXPORTS = [
   // layout
   'LAYOUT_TEMPLATE',
   'LAYOUT_UNITS',
+  'autoLayout',
   'layoutDirection',
   'layoutPageKindSchema',
   'layoutPageSchema',
