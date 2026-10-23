@@ -103,6 +103,7 @@ export const moderationReasonSchema = z.enum([
   'self_harm',
   'hate',
   'violent_wrongdoing',
+  'artist_style',
 ]);
 
 export type RenderRunState = z.infer<typeof renderRunStateSchema>;

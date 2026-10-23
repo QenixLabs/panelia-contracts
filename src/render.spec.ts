@@ -101,7 +101,7 @@ describe('render enums', () => {
       'NSFW_FLAGGED', 'REFS_UNAVAILABLE', 'CANCELED',
     ]);
     expect(moderationReasonSchema.options).toEqual([
-      'sexual', 'sexual_minors', 'graphic_violence', 'self_harm', 'hate', 'violent_wrongdoing',
+      'sexual', 'sexual_minors', 'graphic_violence', 'self_harm', 'hate', 'violent_wrongdoing', 'artist_style',
     ]);
   });
 
